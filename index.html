@@ -2577,14 +2577,303 @@
       };
     }
     function printCombinedRecordAndVisit(patient) {
-  printRecord(patient.id);
-  setTimeout(() => {
-    printVisitForm(patient);
-  }, 1500);
+  // Get doctor's department
+  const doctorObj = doctors.find(d => (typeof d === 'string' ? d : d.name) === patient.doctor);
+  const department = doctorObj && typeof doctorObj !== 'string' ? (doctorObj.department || 'General') : 'General';
+  
+  const today = getToday();
+  let docCount = 0;
+  if (patient.doctor && doctorCounts[patient.doctor] && doctorCounts[patient.doctor].date === today) {
+    docCount = doctorCounts[patient.doctor].count;
+  }
+  
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+  
+  const qrData = JSON.stringify({
+    id: patient.id,
+    name: patient.name,
+    doctor: patient.doctor,
+    age: patient.age,
+    gender: patient.gender,
+    department: department,
+    date: patient.dateAdded,
+    time: timeStr
+  });
+
+  // Combined HTML with both pages
+  const combinedHTML = `
+    <html>
+      <head>
+        <title>Patient Record and Visit Form</title>
+        <style>
+          ${document.querySelector('style').textContent}
+          
+          /* Visit form specific styles */
+          @page { size: A4; margin: 10mm; }
+          .visit-page {
+            page-break-before: always;
+            font-family: Arial, sans-serif;
+            font-size: 10px;
+            margin: 0;
+            padding: 10px;
+          }
+          .visit-header {
+            text-align: center;
+            border-bottom: 3px solid #000;
+            padding-bottom: 8px;
+            margin-bottom: 12px;
+          }
+          .visit-header h1 {
+            margin: 3px 0;
+            font-size: 20px;
+          }
+          .visit-header p {
+            margin: 2px 0;
+            font-size: 10px;
+          }
+          .visit-top-section {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 12px;
+          }
+          .visit-qr-section {
+            flex: 0 0 130px;
+            border: 2px solid #000;
+            padding: 8px;
+            text-align: center;
+            background: #f9f9f9;
+          }
+          .visit-qr-code {
+            width: 110px;
+            height: 110px;
+            border: 1px solid #666;
+            background: white;
+            margin: 0 auto 5px;
+          }
+          .visit-qr-label {
+            font-size: 9px;
+            font-weight: bold;
+            margin-top: 3px;
+          }
+          .visit-patient-info {
+            flex: 1;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            padding: 8px;
+            background: #f5f5f5;
+            border: 2px solid #000;
+          }
+          .visit-patient-info div {
+            font-size: 11px;
+            padding: 3px;
+          }
+          .visit-section {
+            margin-bottom: 12px;
+            border: 2px solid #000;
+            padding: 8px;
+            page-break-inside: avoid;
+          }
+          .visit-section-title {
+            font-weight: bold;
+            font-size: 12px;
+            margin-bottom: 8px;
+            padding: 5px;
+            background: #e0e0e0;
+            border-bottom: 1px solid #000;
+          }
+          .visit-checkbox-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 6px;
+          }
+          .visit-checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+          }
+          .visit-checkbox-box {
+            width: 13px;
+            height: 13px;
+            border: 2px solid #000;
+            display: inline-block;
+            flex-shrink: 0;
+          }
+          .visit-checkbox-item label {
+            font-size: 10px;
+          }
+        </style>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>
+      </head>
+      <body>
+        <!-- PAGE 1: Patient Record -->
+        <div class="print-container">
+          <div class="print-header">
+            <img src="logo.png" alt="Hospital Logo" style="object-fit:contain;">
+            <div class="address">
+              <h2>Darul Shifa Imam Khomeini Hospital</h2>
+              <p>Block 3, Hazara Town, Brewery Road, Quetta</p>
+              <p>Phone: 0812857135</p>
+              <div style="margin-left:730px;"><strong>Today's Count:</strong> ${docCount}</div>
+            </div>
+          </div>
+          <div class="print-top-info">
+            <div><strong>Dr Name:</strong> ${patient.doctor || '___________'}</div>
+            <div><strong>Amount:</strong> ${patient.amount === 'FREE' ? '<span style="color: #28a745; font-size: 30px;">FREE</span>' : patient.amount || '___________'}</div>
+            <div><strong>Date:</strong> ${patient.dateAdded || '___________'}</div>
+          </div>
+          <div class="columns">
+            <div class="left-column">
+              <h2 style="background: #f0f0f0; padding: 10px; border-radius: 4px;">${department}</h2>
+              <h2>Clinical Notes</h2>
+              <div><strong>BP:</strong> ${patient.bp || '____________'}</div>
+              <div><strong>Weight:</strong> ${patient.weight || '_______'} kg</div>
+              <div><strong>Temperature:</strong> ${patient.temperature || '_______'}</div>
+            </div>
+            <div class="right-column">
+              <div><strong>Patient ID:</strong> ${patient.id}</div>
+              <div><strong>Patient Name:</strong> ${patient.name}</div>
+              <div><strong>Gender:</strong> ${patient.gender}</div>
+              <div><strong>Age:</strong> ${patient.age} yrs</div>
+              <div><strong>Contact:</strong> ${patient.contact || '___________'}</div>
+              <div class="rx">
+                <h1>RX</h1>
+                <div style="white-space: pre-wrap; font-size: 25px;">${patient.rx || ''}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- PAGE 2: Visit Form -->
+        <div class="visit-page">
+          <div class="visit-header">
+            <h1>DARUL SHIFA IMAM KHOMEINI HOSPITAL</h1>
+            <p>Block 3, Hazara Town, Brewery Road, Quetta</p>
+            <p>Phone: 0812857135</p>
+            <p style="font-weight: bold; margin-top: 8px; font-size: 12px;">VISIT FORM</p>
+          </div>
+          
+          <div class="visit-top-section">
+            <div class="visit-qr-section">
+              <div id="qrcode" class="visit-qr-code"></div>
+              <div class="visit-qr-label">Scan to Load Patient</div>
+            </div>
+            
+            <div class="visit-patient-info">
+              <div><strong>Patient ID:</strong> ${patient.id}</div>
+              <div><strong>Name:</strong> ${patient.name}</div>
+              <div><strong>Gender:</strong> ${patient.gender}</div>
+              <div><strong>Age:</strong> ${patient.age} yrs</div>
+              <div><strong>Doctor:</strong> ${patient.doctor}</div>
+              <div><strong>Department:</strong> ${department}</div>
+              <div><strong>Date:</strong> ${patient.dateAdded}</div>
+              <div><strong>Time:</strong> ${timeStr}</div>
+            </div>
+          </div>
+          
+          <div class="visit-section">
+            <div class="visit-section-title">RISK FACTORS</div>
+            <div class="visit-checkbox-grid">
+              <div class="visit-checkbox-item"><span class="visit-checkbox-box"></span><label>Hypertension</label></div>
+              <div class="visit-checkbox-item"><span class="visit-checkbox-box"></span><label>Diabetes mellitus</label></div>
+              <div class="visit-checkbox-item"><span class="visit-checkbox-box"></span><label>Lipids</label></div>
+              <div class="visit-checkbox-item"><span class="visit-checkbox-box"></span><label>CVD</label></div>
+              <div class="visit-checkbox-item"><span class="visit-checkbox-box"></span><label>Stroke</label></div>
+              <div class="visit-checkbox-item"><span class="visit-checkbox-box"></span><label>HBsAG</label></div>
+              <div class="visit-checkbox-item"><span class="visit-checkbox-box"></span><label>HCV</label></div>
+              <div class="visit-checkbox-item"><span class="visit-checkbox-box"></span><label>Obesity</label></div>
+              <div class="visit-checkbox-item"><span class="visit-checkbox-box"></span><label>Lab Investigation</label></div>
+            </div>
+          </div>
+          
+          <div class="visit-section">
+            <div class="visit-section-title">PRESENTING COMPLAINTS</div>
+            <div class="visit-checkbox-grid">
+              <div class="visit-checkbox-item"><span class="visit-checkbox-box"></span><label>Gastro</label></div>
+              <div class="visit-checkbox-item"><span class="visit-checkbox-box"></span><label>ARI</label></div>
+              <div class="visit-checkbox-item"><span class="visit-checkbox-box"></span><label>Abdominal Pain</label></div>
+              <div class="visit-checkbox-item"><span class="visit-checkbox-box"></span><label>Malaria</label></div>
+              <div class="visit-checkbox-item"><span class="visit-checkbox-box"></span><label>Flu</label></div>
+              <div class="visit-checkbox-item"><span class="visit-checkbox-box"></span><label>UTI</label></div>
+              <div class="visit-checkbox-item"><span class="visit-checkbox-box"></span><label>Headache</label></div>
+              <div class="visit-checkbox-item"><span class="visit-checkbox-box"></span><label>Lower Respiratory</label></div>
+              <div class="visit-checkbox-item"><span class="visit-checkbox-box"></span><label>Cough</label></div>
+              <div class="visit-checkbox-item"><span class="visit-checkbox-box"></span><label>Fever</label></div>
+              <div class="visit-checkbox-item"><span class="visit-checkbox-box"></span><label>Constipation</label></div>
+              <div class="visit-checkbox-item"><span class="visit-checkbox-box"></span><label>Diarrhea</label></div>
+              <div class="visit-checkbox-item"><span class="visit-checkbox-box"></span><label>Vomiting</label></div>
+              <div class="visit-checkbox-item"><span class="visit-checkbox-box"></span><label>SOB</label></div>
+              <div class="visit-checkbox-item"><span class="visit-checkbox-box"></span><label>Anxiety</label></div>
+              <div class="visit-checkbox-item"><span class="visit-checkbox-box"></span><label>Body pain</label></div>
+              <div class="visit-checkbox-item"><span class="visit-checkbox-box"></span><label>RTA</label></div>
+              <div class="visit-checkbox-item"><span class="visit-checkbox-box"></span><label>Trauma</label></div>
+              <div class="visit-checkbox-item"><span class="visit-checkbox-box"></span><label>Sore throat</label></div>
+              <div class="visit-checkbox-item"><span class="visit-checkbox-box"></span><label>Joint pain</label></div>
+            </div>
+          </div>
+          
+          <div class="visit-section">
+            <div class="visit-section-title">TREATMENT PLAN</div>
+            <div class="visit-checkbox-grid">
+              <div class="visit-checkbox-item"><span class="visit-checkbox-box"></span><label>Antibiotics</label></div>
+              <div class="visit-checkbox-item"><span class="visit-checkbox-box"></span><label>Analgesics</label></div>
+              <div class="visit-checkbox-item"><span class="visit-checkbox-box"></span><label>Antipyretics</label></div>
+              <div class="visit-checkbox-item"><span class="visit-checkbox-box"></span><label>Antiemetics</label></div>
+              <div class="visit-checkbox-item"><span class="visit-checkbox-box"></span><label>IV Fluids</label></div>
+              <div class="visit-checkbox-item"><span class="visit-checkbox-box"></span><label>Nebulization</label></div>
+              <div class="visit-checkbox-item"><span class="visit-checkbox-box"></span><label>Oxygen Therapy</label></div>
+              <div class="visit-checkbox-item"><span class="visit-checkbox-box"></span><label>Wound Debridement</label></div>
+              <div class="visit-checkbox-item"><span class="visit-checkbox-box"></span><label>Immobilization</label></div>
+              <div class="visit-checkbox-item"><span class="visit-checkbox-box"></span><label>Vitals Monitoring</label></div>
+            </div>
+          </div>
+        </div>
+        
+        <script>
+          const qrData = '${qrData.replace(/'/g, "\\'")}';
+          setTimeout(function() {
+            new QRCode(document.getElementById("qrcode"), {
+              text: qrData,
+              width: 110,
+              height: 110,
+              colorDark: "#000000",
+              colorLight: "#ffffff",
+              correctLevel: QRCode.CorrectLevel.H
+            });
+          }, 100);
+        <\/script>
+      </body>
+    </html>
+  `;
+
+  const printWindow = window.open('', '_blank', 'width=800,height=1000');
+  
+  if (!printWindow) {
+    console.error('Failed to open print window - popup blocked?');
+    alert('Please allow popups to print');
+    return;
+  }
+  
+  printWindow.document.write(combinedHTML);
+  printWindow.document.close();
+
+  printWindow.onload = function() {
+    setTimeout(function() {
+      printWindow.focus();
+      printWindow.print();
+      setTimeout(function() {
+        printWindow.close();
+      }, 100);
+    }, 1000);
+  };
 }
 
 function printCombinedThermalAndVisit(patient) {
+  // First print thermal receipt
   printThermalReceipt(patient);
+  
+  // Then print visit form after a delay
   setTimeout(() => {
     printVisitForm(patient);
   }, 1500);
